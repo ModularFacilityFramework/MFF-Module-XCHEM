@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { usePageState } from '../usePageState';
 
 const wrapperStyle = { border: '1px solid #ddd', borderRadius: '4px', overflow: 'auto' };
 const tableStyle = { width: '100%', borderCollapse: 'collapse' };
@@ -22,10 +23,20 @@ function PageAccessTab({ coreApi }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Unsaved role-grid edits are a form draft: kept across leaving the tab and
+  // reloads (per user) until saved, so a half-done edit isn't lost. null = no draft.
+  const [draft, setDraft] = usePageState(coreApi, 'pageAccessDraft', null);
+  const initialDraft = useRef(draft);
 
   useEffect(() => {
     api.get('/xchem/page-access')
-      .then(res => { setPages(res.data.pages); setRoles(res.data.roles); setAccess(res.data.access); })
+      .then(res => {
+        setPages(res.data.pages);
+        setRoles(res.data.roles);
+        // Restore the draft over the server copy; the server ignores unknown
+        // roles/pages on save, so a stale draft can't cause an error.
+        setAccess(initialDraft.current && typeof initialDraft.current === 'object' ? initialDraft.current : res.data.access);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [api]);
@@ -33,18 +44,18 @@ function PageAccessTab({ coreApi }) {
   function toggleRole(pageKey, role) {
     if (!canManageUsers) return;
     setSaved(false);
-    setAccess(prev => {
-      const current = prev[pageKey] || [];
-      const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
-      return { ...prev, [pageKey]: next };
-    });
+    const current = access[pageKey] || [];
+    const nextRoles = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
+    const nextAccess = { ...access, [pageKey]: nextRoles };
+    setAccess(nextAccess);
+    setDraft(nextAccess);
   }
 
   function handleSave() {
     setSaving(true);
     setError('');
     api.put('/xchem/page-access', { access })
-      .then(() => setSaved(true))
+      .then(() => { setSaved(true); setDraft(null); })
       .catch(err => setError(err.message))
       .finally(() => setSaving(false));
   }

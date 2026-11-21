@@ -15,6 +15,7 @@
 import React, { useEffect, useState } from 'react';
 import OverviewTab from './OverviewTab';
 import PageAccessTab from './PageAccessTab';
+import { usePageState } from '../usePageState';
 
 // 'page-access' is deliberately not in here - it's staff-only by the same
 // canManageUsers check that gates editing it in PageAccessTab.js, not
@@ -60,7 +61,10 @@ function Dashboard({ coreApi }) {
   // (same as elsewhere in this module), everyone else only sees a tab once
   // one of their roles has been explicitly granted it there.
   const [access, setAccess] = useState(null);
-  const [activeTab, setActiveTab] = useState(null);
+  // Selected tab survives leaving the page and reloads, per user. A saved tab
+  // that no longer exists or isn't visible to this user falls back to the
+  // first visible one below (currentTab), no error.
+  const [activeTab, setActiveTab] = usePageState(coreApi, 'activeTab', null);
 
   useEffect(() => {
     api.get('/xchem/page-access')
