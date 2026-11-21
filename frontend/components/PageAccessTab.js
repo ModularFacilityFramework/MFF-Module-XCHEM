@@ -25,7 +25,7 @@ function PageAccessTab({ coreApi }) {
   const [saved, setSaved] = useState(false);
   // Unsaved role-grid edits are a form draft: kept across leaving the tab and
   // reloads (per user) until saved, so a half-done edit isn't lost. null = no draft.
-  const [draft, setDraft] = usePageState(coreApi, 'pageAccessDraft', null);
+  const [draft, setDraft, resetDraft] = usePageState(coreApi, 'xchem.pageAccess.draft', null, v => v === null || (typeof v === 'object' && !Array.isArray(v)));
   const initialDraft = useRef(draft);
 
   useEffect(() => {
@@ -55,7 +55,7 @@ function PageAccessTab({ coreApi }) {
     setSaving(true);
     setError('');
     api.put('/xchem/page-access', { access })
-      .then(() => { setSaved(true); setDraft(null); })
+      .then(() => { setSaved(true); resetDraft(); })
       .catch(err => setError(err.message))
       .finally(() => setSaving(false));
   }

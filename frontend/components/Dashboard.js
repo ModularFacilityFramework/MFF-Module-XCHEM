@@ -64,7 +64,7 @@ function Dashboard({ coreApi }) {
   // Selected tab survives leaving the page and reloads, per user. A saved tab
   // that no longer exists or isn't visible to this user falls back to the
   // first visible one below (currentTab), no error.
-  const [activeTab, setActiveTab] = usePageState(coreApi, 'activeTab', null);
+  const [activeTab, setActiveTab] = usePageState(coreApi, 'xchem.dashboard.tab', null, v => v === null || typeof v === 'string');
 
   useEffect(() => {
     api.get('/xchem/page-access')

@@ -1,64 +1,35 @@
-// Page-state persistence for this module (user's rule: every page, tab and
-// sub-tab keeps its selections, filters, drafts etc. across leaving the page
-// and reloading, per user).
+// Page-state persistence for this module (rule: every page, tab and sub-tab
+// keeps its selections, filters, drafts etc. across leaving the page and
+// reloading, per user).
 //
-// Every piece of persisted UI state in this module goes through this one hook,
-// so the storage backend lives in exactly one place.
+// Every piece of persisted UI state in this module goes through this one thin
+// wrapper over core's shared helper `coreApi.usePageState` (per user, saved in
+// the browser at once and on the server, survives reload and logout).
 //
-// INTERIM BACKEND: mff-core is providing a shared page-state helper (state per
-// user, surviving reload and logout). Until it is published this stores in the
-// browser's localStorage, keyed by module id + user id, so state is already
-// per user and survives leave / reload / logout in the same browser. When
-// core's helper arrives, only the body of this file changes - callers keep
-// using `usePageState(coreApi, key, initialValue)` unchanged.
-import { useCallback, useEffect, useState } from 'react';
-import manifest from '../module.manifest.json';
+//   const [value, setValue, reset] = usePageState(coreApi, 'xchem.page.what', initial, validate);
+//
+// - key: `xchem.<page>.<what>` (optionally `:id`), always starts with this module's id.
+// - initial: fallback when nothing is saved yet.
+// - validate (optional): array of allowed values, or function(value) => boolean;
+//   a saved value that fails it silently falls back to `initial`.
+// - reset: forgets the saved value (call after a successful save / cancel).
+//
+// If core is older and has no usePageState, falls back to plain useState
+// (nothing persisted, page still works). The choice is fixed for the whole
+// session, so the hook order never changes between renders.
+import { useState } from 'react';
 
-function storageKey(userId, key) {
-  return `mff:${manifest.id}:${userId}:${key}`;
+function useLocalState(initial) {
+  const [value, setValue] = useState(initial);
+  const reset = () => setValue(initial);
+  return [value, setValue, reset];
 }
 
-function readStored(userId, key, fallback) {
-  if (userId == null) return fallback;
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId, key));
-    return raw === null ? fallback : JSON.parse(raw);
-  } catch (err) {
-    return fallback; // storage blocked or value corrupt - never an error for the user
+export function usePageState(coreApi, key, initial, validate) {
+  /* eslint-disable react-hooks/rules-of-hooks */
+  if (coreApi && typeof coreApi.usePageState === 'function') {
+    return coreApi.usePageState(key, initial, validate);
   }
-}
-
-function writeStored(userId, key, value) {
-  if (userId == null) return;
-  try {
-    window.localStorage.setItem(storageKey(userId, key), JSON.stringify(value === undefined ? null : value));
-  } catch (err) {
-    // storage full/blocked: state just stops persisting, the page keeps working
-  }
-}
-
-// Same shape as useState: const [value, setValue] = usePageState(coreApi, 'activeTab', null).
-// `key` must be unique within this module; `initialValue` is the fallback when
-// nothing is saved yet. setValue accepts a value or an updater function.
-export function usePageState(coreApi, key, initialValue) {
-  const { userData } = coreApi.useAuth();
-  const userId = userData && userData.user ? userData.user.id : null;
-  const [value, setValue] = useState(() => readStored(userId, key, initialValue));
-
-  // The logged-in user can change while this component stays mounted
-  // (logout/login): load that user's own saved value, not the previous one's.
-  useEffect(() => {
-    setValue(readStored(userId, key, initialValue));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key]);
-
-  const set = useCallback(next => {
-    setValue(prev => {
-      const resolved = typeof next === 'function' ? next(prev) : next;
-      writeStored(userId, key, resolved);
-      return resolved;
-    });
-  }, [userId, key]);
-
-  return [value, set];
+  return useLocalState(initial);
+  /* eslint-enable react-hooks/rules-of-hooks */
 }
