@@ -12,8 +12,18 @@ const hintStyle = { fontSize: '12px', color: '#856404', backgroundColor: '#fff3c
 const saveButtonStyle = { padding: '5px 10px', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', backgroundColor: '#007bff', marginTop: '12px' };
 const savedChipStyle = { display: 'inline-block', padding: '2px 6px', margin: '0 0 0 10px', borderRadius: '3px', fontSize: '11px', color: 'white', backgroundColor: '#28a745' };
 
+// Fallbacks for a core older than the shared sortable-table helpers (v0.1.223):
+// the table renders unsorted with plain headers instead of crashing.
+const useUnsortedRows = rows => ({ rows });
+function PlainHeader({ table, column, label, ...thProps }) {
+  return <th {...thProps} />;
+}
+
 function PageAccessTab({ coreApi }) {
   const { api, useAuth, useRoles } = coreApi;
+  // Which one is used is fixed for the whole session, so hook order is stable.
+  const useSortedRows = coreApi.useSortedRows || useUnsortedRows;
+  const SortHeader = (coreApi.ui && coreApi.ui.SortHeader) || PlainHeader;
   const { userData } = useAuth();
   const { canManageUsers } = useRoles(userData);
   const [pages, setPages] = useState([]);
@@ -40,6 +50,16 @@ function PageAccessTab({ coreApi }) {
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [api]);
+
+  // Core's shared natural sorting; the chosen column/direction is saved per user.
+  // Must stay above the early returns (it is a hook). Role columns sort on
+  // whether the page is granted to that role; a saved role column that no longer
+  // exists falls back to the default order.
+  const columns = { page: page => page.label };
+  for (const role of roles) {
+    columns[`role:${role}`] = { value: page => ((access[page.key] || []).includes(role) ? 1 : 0), type: 'number' };
+  }
+  const table = useSortedRows(pages, columns, { rememberAs: 'xchem.pageAccess.table', defaultSort: null });
 
   function toggleRole(pageKey, role) {
     if (!canManageUsers) return;
@@ -68,9 +88,14 @@ function PageAccessTab({ coreApi }) {
       {!canManageUsers && <p style={hintStyle}>Read-only - only staff-level users in this module can change page access.</p>}
       <div style={wrapperStyle}>
         <table style={tableStyle}>
-          <thead style={theadStyle}><tr><th style={thStyle}>Page</th>{roles.map(role => <th key={role} style={thStyle}>{role}</th>)}</tr></thead>
+          <thead style={theadStyle}>
+            <tr>
+              <SortHeader table={table} column="page" label="Page" style={thStyle}>Page</SortHeader>
+              {roles.map(role => <SortHeader key={role} table={table} column={`role:${role}`} label={role} style={thStyle}>{role}</SortHeader>)}
+            </tr>
+          </thead>
           <tbody>
-            {pages.map(page => (
+            {table.rows.map(page => (
               <tr key={page.key}>
                 <td style={tdStyle}>{page.label}</td>
                 {roles.map(role => (
