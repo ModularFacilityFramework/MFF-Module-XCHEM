@@ -1,5 +1,5 @@
 // The "Overview" tab inside Dashboard.js: the fragment-screening campaigns of
-// the project chosen in the picker above the tab bar. Placeholder list - there
+// the project whose tab is selected in core's ProjectTabs above. Placeholder list - there
 // is no way to create a campaign yet. Only ever touches core through the
 // coreApi prop (docs/MFF-Core_module-core-api.md).
 import React, { useEffect, useState } from 'react';
@@ -17,8 +17,10 @@ function PlainHeader({ table, column, label, ...thProps }) {
 
 const NO_CAMPAIGNS = [];
 
-function OverviewTab({ coreApi, projectId }) {
+function OverviewTab({ coreApi, selection }) {
   const { api } = coreApi;
+  // Nothing project-specific until ProjectTabs has loaded.
+  const projectId = selection && selection.ready ? selection.projectId : null;
   // Which one is used is fixed for the whole session, so hook order is stable.
   const useSortedRows = coreApi.useSortedRows || useUnsortedRows;
   const SortHeader = (coreApi.ui && coreApi.ui.SortHeader) || PlainHeader;
@@ -42,7 +44,8 @@ function OverviewTab({ coreApi, projectId }) {
     created: { value: c => c.created_at, type: 'date' }
   }, { rememberAs: 'xchem.campaigns.table', defaultSort: null });
 
-  if (!projectId) return <p className={styles.empty}>Choose a project above to see its campaigns.</p>;
+  if (!selection || !selection.ready) return null; // ProjectTabs shows loading / error itself
+  if (!projectId) return <p className={styles.empty}>No project to show campaigns for.</p>;
   if (!current) return <div className={styles.loading}>Loading...</div>;
   if (result.error) return <div className={styles.error}>{result.error}</div>;
 

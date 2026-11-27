@@ -50,9 +50,8 @@ const contentPanelStyle = {
   borderRadius: '0 0 4px 4px'
 };
 
-const pickerStyle = { marginBottom: '16px' };
-
 const loadingStyle = { textAlign: 'center', padding: '20px' };
+const noticeStyle = { marginBottom: '16px' };
 
 function Dashboard({ coreApi }) {
   const { api, useAuth, useRoles } = coreApi;
@@ -63,12 +62,6 @@ function Dashboard({ coreApi }) {
   // (same as elsewhere in this module), everyone else only sees a tab once
   // one of their roles has been explicitly granted it there.
   const [access, setAccess] = useState(null);
-  // The project the whole module is filtered by. ProjectPicker itself saves the
-  // selection per user (rememberAs) and reports it back through onChange. Never
-  // pass it a `value` prop: that makes it controlled, and a controlled picker
-  // neither shows nor reports the remembered project after a reload.
-  const [projectId, setProjectId] = useState(null);
-  const ProjectPicker = coreApi.ui && coreApi.ui.ProjectPicker;
   // Selected tab survives leaving the page and reloads, per user. A saved tab
   // that no longer exists or isn't visible to this user falls back to the
   // first visible one below (currentTab), no error.
@@ -91,13 +84,8 @@ function Dashboard({ coreApi }) {
   if (!currentTab) return <div style={loadingStyle}>You don't have access to any tab in this module.</div>;
   const ActiveComponent = currentTab.component;
 
-  return (
+  const renderPage = selection => (
     <div>
-      <div style={pickerStyle}>
-        {ProjectPicker
-          ? <ProjectPicker mode="single" rememberAs="xchem.dashboard.project" onChange={id => setProjectId(id || null)} />
-          : <div>Projects need a newer MFF-core.</div>}
-      </div>
       <div style={tabBarStyle}>
         {visibleTabs.map(tab => (
           <div
@@ -110,9 +98,29 @@ function Dashboard({ coreApi }) {
         ))}
       </div>
       <div style={contentPanelStyle}>
-        <ActiveComponent coreApi={coreApi} projectId={projectId} />
+        <ActiveComponent coreApi={coreApi} selection={selection} />
       </div>
     </div>
+  );
+
+  // Core's project tab layer sits at the top of the module (one tab per project,
+  // it chooses and remembers the project itself); the module's own tabs are
+  // rendered inside it for the selected project. When XCHEM gets forms that
+  // create things, wrap them in coreApi.ui.ProjectTask and only create when
+  // selection.canCreate - and check the same on the server.
+  const ProjectTabs = coreApi.ui && coreApi.ui.ProjectTabs;
+  if (!ProjectTabs) {
+    return (
+      <div>
+        <div style={noticeStyle}>Projects need MFF-core 0.1.227 or later.</div>
+        {renderPage(null)}
+      </div>
+    );
+  }
+  return (
+    <ProjectTabs rememberAs="xchem.dashboard" moduleId="xchem">
+      {renderPage}
+    </ProjectTabs>
   );
 }
 
