@@ -22,7 +22,7 @@ function registerCampaignItem(coreApi, req, campaign) {
       item_id: String(campaign.id),
       title: campaign.title,
       status: campaign.status,
-      link: '/xchem' // this module's menu page; no per-campaign page yet
+      link: '/dashboard?tab=xchem' // this module's Dashboard tab; no per-campaign page yet
     }
   });
 }
