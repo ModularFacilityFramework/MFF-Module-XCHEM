@@ -1,7 +1,7 @@
 {
   "id": "xchem",
   "label": "XCHEM",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "tablePrefix": "xchem_",
   "mountPath": "/xchem",
   "backendEntry": "backend/index.js",
