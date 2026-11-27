@@ -1,42 +1,73 @@
-// Example component - delete/replace once this module has its own real UI.
-// This is now the "Overview" tab inside Dashboard.js - the module's actual
-// content, as opposed to Dashboard.js itself (the tab shell) or
-// PageAccessTab.js (access-control admin UI). Only ever touches core through
-// the coreApi prop passed down from frontend/index.js's register() call -
-// never a direct import of anything under mff-core's own src/core/ tree. See
-// docs/MFF-Core_module-core-api.md for the contract.
+// The "Overview" tab inside Dashboard.js: the fragment-screening campaigns of
+// the project chosen in the picker above the tab bar. Placeholder list - there
+// is no way to create a campaign yet. Only ever touches core through the
+// coreApi prop (docs/MFF-Core_module-core-api.md).
 import React, { useEffect, useState } from 'react';
 import styles from '../styles/OverviewTab.module.css';
 
-function OverviewTab({ coreApi }) {
-  const { api, useAuth, useRoles } = coreApi;
-  const { userData } = useAuth();
-  const { canManageUsers } = useRoles(userData);
-  const [things, setThings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+const tableStyle = { width: '100%', borderCollapse: 'collapse' };
+const thStyle = { padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: '13px', backgroundColor: '#f8f9fa' };
+const tdStyle = { padding: '12px', textAlign: 'left', borderBottom: '1px solid #eee', fontSize: '13px' };
+
+// Fallbacks for a core older than the shared sortable-table helpers (v0.1.223).
+const useUnsortedRows = rows => ({ rows });
+function PlainHeader({ table, column, label, ...thProps }) {
+  return <th {...thProps} />;
+}
+
+const NO_CAMPAIGNS = [];
+
+function OverviewTab({ coreApi, projectId }) {
+  const { api } = coreApi;
+  // Which one is used is fixed for the whole session, so hook order is stable.
+  const useSortedRows = coreApi.useSortedRows || useUnsortedRows;
+  const SortHeader = (coreApi.ui && coreApi.ui.SortHeader) || PlainHeader;
+  // The answer is kept together with the project it belongs to, so one
+  // project's campaigns are never shown under another.
+  const [result, setResult] = useState({ projectId: null, rows: NO_CAMPAIGNS, error: '' });
 
   useEffect(() => {
-    api.get('/xchem/things')
-      .then(res => setThings(res.data))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [api]);
+    if (!projectId) return undefined;
+    let cancelled = false;
+    api.get('/xchem/campaigns', { params: { project_id: projectId } })
+      .then(res => { if (!cancelled) setResult({ projectId, rows: res.data, error: '' }); })
+      .catch(err => { if (!cancelled) setResult({ projectId, rows: NO_CAMPAIGNS, error: err.response?.data?.error || err.message }); });
+    return () => { cancelled = true; };
+  }, [api, projectId]);
 
-  if (loading) return <div className={styles.loading}>Loading...</div>;
-  if (error) return <div className={styles.error}>{error}</div>;
+  const current = Boolean(projectId) && result.projectId === projectId;
+  const table = useSortedRows(current ? result.rows : NO_CAMPAIGNS, {
+    title: c => c.title,
+    status: c => c.status,
+    created: { value: c => c.created_at, type: 'date' }
+  }, { rememberAs: 'xchem.campaigns.table', defaultSort: null });
+
+  if (!projectId) return <p className={styles.empty}>Choose a project above to see its campaigns.</p>;
+  if (!current) return <div className={styles.loading}>Loading...</div>;
+  if (result.error) return <div className={styles.error}>{result.error}</div>;
 
   return (
     <div className={styles.container}>
-      <h3>XCHEM</h3>
-      {canManageUsers && <p className={styles.hint}>You have staff-level access in this module.</p>}
-      {things.length === 0 ? (
-        <p className={styles.empty}>No things yet.</p>
-      ) : (
-        <ul>
-          {things.map(t => <li key={t.id}>{t.name}</li>)}
-        </ul>
-      )}
+      <h3>Fragment-screening campaigns</h3>
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <SortHeader table={table} column="title" label="Campaign" style={thStyle}>Campaign</SortHeader>
+            <SortHeader table={table} column="status" label="Status" style={thStyle}>Status</SortHeader>
+            <SortHeader table={table} column="created" label="Created" style={thStyle}>Created</SortHeader>
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map(c => (
+            <tr key={c.id}>
+              <td style={tdStyle}>{c.title}</td>
+              <td style={tdStyle}>{c.status}</td>
+              <td style={tdStyle}>{new Date(c.created_at).toLocaleDateString('en-GB')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {table.rows.length === 0 && <p className={styles.empty}>No campaigns in this project yet.</p>}
     </div>
   );
 }

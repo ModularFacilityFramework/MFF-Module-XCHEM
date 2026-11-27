@@ -10,17 +10,18 @@
 -- dev, dev/db/dev-setup.js imports this same file against a throwaway
 -- <id>_dev database instead - a separate, non-interacting system.
 
-CREATE TABLE IF NOT EXISTS xchem_things (
+-- Fragment-screening campaigns. Each belongs to one project, owned by the
+-- Science module: project_id is Science's project id (another database, so no
+-- FK). Who may see or change a campaign is decided by project membership
+-- (coreApi.projects.access), never by this table. No route creates rows yet.
+CREATE TABLE IF NOT EXISTS xchem_campaigns (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  owner_id BIGINT NOT NULL,
+  project_id BIGINT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'new',
+  created_by BIGINT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_owner_id (owner_id)
-  -- No FK to setup_users(id) here on purpose: this file also runs standalone
-  -- against dev/db/dev-setup.js's throwaway <id>_dev database, which has no
-  -- setup_users table at all. Add the FK back in when installing into a real
-  -- core database if you want it enforced there (core's own schema.sql
-  -- pattern shows the FK syntax to copy).
+  KEY idx_project_id (project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Backs PageAccessTab.js / pageAccessRoutes.js: which roles can see which of

@@ -50,6 +50,8 @@ const contentPanelStyle = {
   borderRadius: '0 0 4px 4px'
 };
 
+const pickerStyle = { marginBottom: '16px' };
+
 const loadingStyle = { textAlign: 'center', padding: '20px' };
 
 function Dashboard({ coreApi }) {
@@ -61,6 +63,10 @@ function Dashboard({ coreApi }) {
   // (same as elsewhere in this module), everyone else only sees a tab once
   // one of their roles has been explicitly granted it there.
   const [access, setAccess] = useState(null);
+  // The project the whole module is filtered by. ProjectPicker itself saves the
+  // selection per user (rememberAs) and reports it back through onChange.
+  const [projectId, setProjectId] = useState(null);
+  const ProjectPicker = coreApi.ui && coreApi.ui.ProjectPicker;
   // Selected tab survives leaving the page and reloads, per user. A saved tab
   // that no longer exists or isn't visible to this user falls back to the
   // first visible one below (currentTab), no error.
@@ -85,6 +91,11 @@ function Dashboard({ coreApi }) {
 
   return (
     <div>
+      <div style={pickerStyle}>
+        {ProjectPicker
+          ? <ProjectPicker mode="single" rememberAs="xchem.dashboard.project" value={projectId} onChange={id => setProjectId(id || null)} />
+          : <div>Projects need a newer MFF-core.</div>}
+      </div>
       <div style={tabBarStyle}>
         {visibleTabs.map(tab => (
           <div
@@ -97,7 +108,7 @@ function Dashboard({ coreApi }) {
         ))}
       </div>
       <div style={contentPanelStyle}>
-        <ActiveComponent coreApi={coreApi} />
+        <ActiveComponent coreApi={coreApi} projectId={projectId} />
       </div>
     </div>
   );
