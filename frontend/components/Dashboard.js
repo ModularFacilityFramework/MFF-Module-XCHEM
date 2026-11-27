@@ -64,7 +64,9 @@ function Dashboard({ coreApi }) {
   // one of their roles has been explicitly granted it there.
   const [access, setAccess] = useState(null);
   // The project the whole module is filtered by. ProjectPicker itself saves the
-  // selection per user (rememberAs) and reports it back through onChange.
+  // selection per user (rememberAs) and reports it back through onChange. Never
+  // pass it a `value` prop: that makes it controlled, and a controlled picker
+  // neither shows nor reports the remembered project after a reload.
   const [projectId, setProjectId] = useState(null);
   const ProjectPicker = coreApi.ui && coreApi.ui.ProjectPicker;
   // Selected tab survives leaving the page and reloads, per user. A saved tab
@@ -93,7 +95,7 @@ function Dashboard({ coreApi }) {
     <div>
       <div style={pickerStyle}>
         {ProjectPicker
-          ? <ProjectPicker mode="single" rememberAs="xchem.dashboard.project" value={projectId} onChange={id => setProjectId(id || null)} />
+          ? <ProjectPicker mode="single" rememberAs="xchem.dashboard.project" onChange={id => setProjectId(id || null)} />
           : <div>Projects need a newer MFF-core.</div>}
       </div>
       <div style={tabBarStyle}>
